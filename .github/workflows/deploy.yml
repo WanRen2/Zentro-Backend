@@ -1,0 +1,43 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          PORT=${{ vars.BACKEND_PORT || 3000 }}
+          GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER=${{ github.repository_owner }}
+          GITHUB_REPO=${{ vars.MESSAGES_REPO || 'Zentro-Messages' }}
+          DEV_BYPASS_AUTH=false
+          EOF
+
+      - name: Run health check
+        run: |
+          timeout 5 npm start || true
+          curl -s http://localhost:3000/health
+
+      - name: Start server (background)
+        run: |
+          nohup npm start > server.log 2>&1 &
+          sleep 3
+          curl -s http://localhost:3000/health || cat server.log
