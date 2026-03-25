@@ -31,13 +31,8 @@ jobs:
           DEV_BYPASS_AUTH=false
           EOF
 
-      - name: Health check
+      - name: Start server and health check
         run: |
-          timeout 5 npm start || true
-          curl -s http://localhost:3000/health || cat server.log
-
-      - name: Start server (background)
-        run: |
-          nohup npm start > server.log 2>&1 &
-          sleep 3
-          curl -s http://localhost:3000/health || cat server.log
+          npm start &
+          sleep 2
+          curl -s http://localhost:3000/health || echo "Health check failed"
