@@ -107,3 +107,34 @@ githubRouter.get('/key/shared', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Media upload routes
+githubRouter.post('/media/upload', async (req, res) => {
+  try {
+    const { chat_id, message_id, type, data, filename } = req.body;
+    if (!chat_id || !message_id || !type || !data) {
+      return res.status(400).json({ error: 'chat_id, message_id, type and data required' });
+    }
+    
+    const extension = type === 'image' ? '.jpg' : '.sticker';
+    const path = `media/${chat_id}/${message_id}${extension}`;
+    await uploadFile(path, data, `media:${type}:${chat_id}`);
+    
+    res.json({ status: 'ok', path });
+  } catch (e) {
+    console.error('[media/upload] ', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+githubRouter.get('/media/get', async (req, res) => {
+  try {
+    const { path } = req.query;
+    if (!path) return res.status(400).json({ error: 'path required' });
+    const content = await getFile(path);
+    if (!content) return res.status(404).json({ error: 'not found' });
+    res.json({ data: content });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
