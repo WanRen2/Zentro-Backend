@@ -1,0 +1,27 @@
+name: Auto-cleanup storage
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 00:00 MSK = 21:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete chats and keys
+        run: |
+          rm -rf chats/*
+          rm -rf keys/*
+
+      - name: Commit cleanup
+        run: |
+          git config user.name "zentro-bot"
+          git config user.email "bot@zentro.dev"
+          git add -A
+          git diff --cached --quiet || git commit -m "auto-cleanup: purge chats and keys"
+          git push

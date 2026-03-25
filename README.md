@@ -1,60 +1,67 @@
-Zentro‑Backend
-Минимальный Node.js‑сервер, выполняющий роль транспортного слоя между клиентом Zentro‑App и приватным GitHub‑репозиторием Zentro‑Messages.
+# Zentro Backend
 
-Сервер не хранит ключей, не расшифровывает сообщения, не знает участников. Он только принимает зашифрованные данные и отправляет их в GitHub.
+Minimal Node.js server providing transport layer between Zentro Flutter app and GitHub storage for encrypted messages.
 
-🎯 Функции
-Загрузка зашифрованных сообщений в приватный GitHub‑репозиторий
-Получение списка сообщений из репозитория
-Загрузка/выдача зашифрованных ключей чатов
-Работа через GitHub REST API
-Безопасная авторизация через GitHub PAT
-Без криптографии на стороне сервера
-🛠️ Технологии
-Компонент	Версия/Описание
-Node.js	18+
-Framework	Express или Fastify
-API	GitHub REST API
-Формат данных	JSON
-⚙️ Установка и запуск
-Переменные окружения
-Создайте файл .env в корне проекта:
+## Security
 
-env
+- PAT stored only in environment variable `GITHUB_TOKEN`
+- Client never sees the GitHub token
+- No decryption on backend - stores only ciphertext in GitHub repository
+- Private repository access only for the backend server
 
+## API Endpoints
 
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxx
-GITHUB_OWNER=your-github-username
-GITHUB_REPO=Zentro-Messages
-Команды
-bash
+### Messages
+- `POST /message/upload` - Upload encrypted message
+  ```json
+  { "chat_id": "uuid", "message_id": "uuid", "payload": {...} }
+  ```
+- `GET /message/list?chat_id=...` - List messages in a chat
+- `GET /message/get?chat_id=...&message_id=...` - Get specific message
 
+### Chat Keys
+- `POST /chat/key/upload` - Upload encrypted chat key for a user
+  ```json
+  { "chat_id": "uuid", "fingerprint": "sha256...", "encrypted_key": "base64" }
+  ```
+- `GET /chat/key/get?chat_id=...&fingerprint=...` - Get encrypted chat key
+- `GET /chat/keys/list?chat_id=...` - List chat participants
 
-# Установка зависимостей
-npm install
+### Health
+- `GET /health` - Server health check
 
-# Запуск сервера
-npm run start
-📁 Структура репозитория Zentro-Messages
+## Setup
 
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Zentro-Messages/
-├── chats/
-│   └── <chat_id>/
-│       └── <uuid>.json          # Зашифрованные сообщения
-└── keys/
-    └── <chat_id>/
-        └── <fingerprint>.json   # Зашифрованные ключи чатов
-🔒 Безопасность
-✅ Backend не хранит приватных ключей
+2. Create `.env` file:
+   ```env
+   PORT=3000
+   GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
+   GITHUB_OWNER=your-username
+   GITHUB_REPO=Zentro-Messages
+   DEV_BYPASS_AUTH=true  # Remove in production
+   ```
 
-✅ Backend не расшифровывает сообщения
+3. Run:
+   ```bash
+   npm start
+   ```
 
-✅ Все данные передаются только в зашифрованном виде (ciphertext)
+## GitHub Repository Structure
 
-✅ Доступ к GitHub осуществляется только через PAT
+```
+/chats
+   /<chat_id>
+       /<message_uuid>.json
+/keys
+   /<chat_id>
+       /<fingerprint>.json
+```
 
-✅ Репозиторий Zentro-Messages должен быть приватным
+## Auto Cleanup
 
-📄 Лицензия
-MIT License
+GitHub Actions workflow runs daily at 00:00 MSK (21:00 UTC) to delete all chats and keys.
