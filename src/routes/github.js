@@ -46,12 +46,21 @@ githubRouter.get('/get', async (req, res) => {
 // Chat key routes - mounted at /chat
 githubRouter.post('/key/upload', async (req, res) => {
   try {
-    const { chat_id, fingerprint, encrypted_key } = req.body;
-    if (!chat_id || !fingerprint || !encrypted_key) {
-      return res.status(400).json({ error: 'chat_id, fingerprint, encrypted_key required' });
+    const { chat_id, fingerprint, encrypted_key, chat_key } = req.body;
+    if (!chat_id || !fingerprint) {
+      return res.status(400).json({ error: 'chat_id and fingerprint required' });
     }
+    // Store key for this fingerprint
     const path = `keys/${chat_id}/${fingerprint}.json`;
-    await uploadFile(path, JSON.stringify({ encrypted_key }), `key:${chat_id}/${fingerprint}`);
+    const keyData = { encrypted_key, fingerprint };
+    await uploadFile(path, JSON.stringify(keyData), `key:${chat_id}/${fingerprint}`);
+    
+    // If this is a shared chat_key (unencrypted for sharing), store it separately
+    if (chat_key) {
+      const sharedPath = `keys/${chat_id}/shared.json`;
+      await uploadFile(sharedPath, JSON.stringify({ chat_key, updated_by: fingerprint }), `shared_key:${chat_id}`);
+    }
+    
     res.json({ status: 'ok' });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -77,7 +86,23 @@ githubRouter.get('/keys/list', async (req, res) => {
     const { chat_id } = req.query;
     if (!chat_id) return res.status(400).json({ error: 'chat_id required' });
     const files = await listDir(`keys/${chat_id}`);
-    res.json({ participants: files.map((f) => f.name.replace('.json', '')) });
+    const participants = files
+      .filter((f) => f.name !== 'shared.json' && f.name.endsWith('.json'))
+      .map((f) => f.name.replace('.json', ''));
+    res.json({ participants });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get shared chat key (for joining users)
+githubRouter.get('/key/shared', async (req, res) => {
+  try {
+    const { chat_id } = req.query;
+    if (!chat_id) return res.status(400).json({ error: 'chat_id required' });
+    const content = await getFile(`keys/${chat_id}/shared.json`);
+    if (!content) return res.status(404).json({ error: 'no shared key found' });
+    res.json(JSON.parse(content));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
